@@ -18,10 +18,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 # Google Sheets Auth
+SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
 
-
-creds_dict = json.loads(os.getenv("GOOGLE_CREDENTIALS"))
-creds = Credentials.from_service_account_info(creds_dict)
+# Load credentials from env variable
+creds_dict = json.loads(os.environ["GOOGLE_CREDENTIALS"])
+creds = Credentials.from_service_account_info(creds_dict, scopes=SCOPES)
 client = gspread.authorize(creds)
 
 SHEET_ID = "1IDBkc4Lh8SueHu3_GMjeybm92Xwiefc7LfeQwsQd-sY"
