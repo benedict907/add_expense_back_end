@@ -3,6 +3,9 @@ from pydantic import BaseModel
 import gspread
 from google.oauth2.service_account import Credentials
 from fastapi.middleware.cors import CORSMiddleware
+import json, os
+from google.oauth2.service_account import Credentials
+
 
 app = FastAPI()
 
@@ -15,8 +18,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 # Google Sheets Auth
-SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
-creds = Credentials.from_service_account_file("credentials.json", scopes=SCOPES)
+
+
+creds_dict = json.loads(os.getenv("GOOGLE_CREDENTIALS"))
+creds = Credentials.from_service_account_info(creds_dict)
 client = gspread.authorize(creds)
 
 SHEET_ID = "1IDBkc4Lh8SueHu3_GMjeybm92Xwiefc7LfeQwsQd-sY"
