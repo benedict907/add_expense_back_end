@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
 import gspread
+from datetime import datetime
 from google.oauth2.service_account import Credentials
 from fastapi.middleware.cors import CORSMiddleware
 import json, os
@@ -21,12 +22,15 @@ app.add_middleware(
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
 
 # Load credentials from env variable
+# creds = Credentials.from_service_account_file("credentials.json", scopes=SCOPES)
 creds_dict = json.loads(os.environ["GOOGLE_CREDENTIALS"])
 creds = Credentials.from_service_account_info(creds_dict, scopes=SCOPES)
 client = gspread.authorize(creds)
 
+month = datetime.now().strftime("%B")
+
 SHEET_ID = "1IDBkc4Lh8SueHu3_GMjeybm92Xwiefc7LfeQwsQd-sY"
-sheet = client.open_by_key(SHEET_ID).worksheet('August')
+sheet = client.open_by_key(SHEET_ID).worksheet(month)
 
 class Expense(BaseModel):
     date: str
@@ -36,5 +40,8 @@ class Expense(BaseModel):
 
 @app.post("/add-expense")
 def add_expense(expense: Expense):
+  try:  
     sheet.append_row([expense.date, expense.category, expense.description, expense.amount])
     return {"status": "success", "data": expense}
+  except: 
+    return {"status": "failed", "data": ""}
