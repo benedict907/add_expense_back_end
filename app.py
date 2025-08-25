@@ -23,8 +23,10 @@ SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
 
 
 # Load credentials from env variable
+#this is for local testing
 #creds = Credentials.from_service_account_file("credentials.json", scopes=SCOPES)
 #creds_dict = json.load(open("credentials.json"))
+#this is for deployment
 creds_dict = json.loads(os.environ["GOOGLE_CREDENTIALS"])
 creds = Credentials.from_service_account_info(creds_dict, scopes=SCOPES)
 client = gspread.authorize(creds)
@@ -49,7 +51,7 @@ def read_root():
 @app.post("/add-expense")
 def add_expense(expense: Expense):
   try:  
-    sheet.append_row([expense.date, expense.category, expense.description, expense.amount])
+    sheet.append_row([expense.date, expense.description, expense.amount,expense.category])
     return {"status": "success", "data": expense}
   except: 
     return {"status": "failed", "data": ""}
