@@ -21,8 +21,10 @@ app.add_middleware(
 # Google Sheets Auth
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
 
+
 # Load credentials from env variable
-# creds = Credentials.from_service_account_file("credentials.json", scopes=SCOPES)
+#creds = Credentials.from_service_account_file("credentials.json", scopes=SCOPES)
+#creds_dict = json.load(open("credentials.json"))
 creds_dict = json.loads(os.environ["GOOGLE_CREDENTIALS"])
 creds = Credentials.from_service_account_info(creds_dict, scopes=SCOPES)
 client = gspread.authorize(creds)
@@ -37,6 +39,12 @@ class Expense(BaseModel):
     category: str
     description: str
     amount: float
+
+
+@app.get("/")
+def read_root():
+    return {"Hello": "World"}
+
 
 @app.post("/add-expense")
 def add_expense(expense: Expense):
