@@ -3,3 +3,4 @@ uvicorn
 gspread
 google-auth
 python-dotenv
+firebase-admin
