@@ -1,0 +1,30 @@
+{
+  "_comment": [
+    "Realtime Database rules covering the credit-card namespaces.",
+    "Paste into Firebase Console -> Realtime Database -> Rules, merging with any",
+    "rules you already have. The pattern is: a signed-in user can only touch the",
+    "node whose key is their own phone number (the dataRoot the front end uses).",
+    "The backend uses the Admin SDK, which bypasses these rules by design."
+  ],
+  "rules": {
+    "$dataRoot": {
+      ".read": "auth != null && ($dataRoot === auth.token.phone_number.replace(' ', '') || $dataRoot === auth.uid)",
+      ".write": "auth != null && ($dataRoot === auth.token.phone_number.replace(' ', '') || $dataRoot === auth.uid)",
+
+      "creditCards": {
+        ".indexOn": ["active"]
+      },
+      "creditCardStatements": {
+        ".indexOn": ["cardId", "statementMonth"]
+      },
+      "creditCardTransactions": {
+        "$statementId": {
+          ".indexOn": ["cardId", "ownerId", "transactionDate", "transactionType"]
+        }
+      },
+      "creditCardOwnerRules": {
+        ".read": "auth != null && ($dataRoot === auth.token.phone_number.replace(' ', '') || $dataRoot === auth.uid)"
+      }
+    }
+  }
+}

@@ -4,3 +4,14 @@ gspread
 google-auth
 python-dotenv
 firebase-admin
+
+# Credit-card statement module
+google-auth-oauthlib
+google-api-python-client
+pikepdf
+pdfplumber
+
+# OCR fallback for scanned statements. Needs system binaries:
+#   brew install tesseract poppler
+pytesseract
+pdf2image

@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 
 import expense_text
 import firebase_store
+from creditcards.router import router as credit_cards_router
 
 load_dotenv()
 
@@ -57,6 +58,10 @@ class Expense(BaseModel):
 
 class QuickExpense(BaseModel):
     text: str
+
+
+# Credit-card statement module — separate namespace, separate storage paths.
+app.include_router(credit_cards_router)
 
 
 @app.get("/")

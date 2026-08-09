@@ -1,0 +1,68 @@
+{
+  "_comment": [
+    "Copy this file to creditcards/cards.json (git-ignored) and fill in your cards.",
+    "This file contains NO passwords. 'passwordEnv' names an environment variable;",
+    "put the real password there (.env locally, host env vars in deployment).",
+    "Tune 'senders' / 'subjectContains' from a real statement email: open it in",
+    "Gmail, use 'Show original', and copy the From address and Subject.",
+    "Verify a query before syncing: GET /credit-cards/preview?cardId=<id>"
+  ],
+  "cards": [
+    {
+      "id": "icici_amazon",
+      "cardName": "Amazon Pay ICICI",
+      "bankName": "ICICI Bank",
+      "lastFourDigits": "1234",
+      "senders": ["credit_cards@icicibank.com", "statements@icicibank.com"],
+      "subjectContains": ["Amazon Pay ICICI Bank Credit Card Statement"],
+      "extraQuery": "",
+      "attachmentNameContains": [".pdf"],
+      "passwordEnv": "CC_PASSWORD_ICICI_AMAZON",
+      "parser": "icici",
+      "active": true,
+      "createdAt": 0
+    },
+    {
+      "id": "kotak",
+      "cardName": "Kotak Credit Card",
+      "bankName": "Kotak Mahindra Bank",
+      "lastFourDigits": "5678",
+      "senders": ["creditcardstatements@kotak.com", "estatements@kotak.com"],
+      "subjectContains": ["Kotak", "Credit Card Statement"],
+      "extraQuery": "",
+      "attachmentNameContains": [".pdf"],
+      "passwordEnv": "CC_PASSWORD_KOTAK",
+      "parser": "kotak",
+      "active": true,
+      "createdAt": 0
+    },
+    {
+      "id": "hdfc",
+      "cardName": "HDFC Credit Card",
+      "bankName": "HDFC Bank",
+      "lastFourDigits": "9012",
+      "senders": ["emailstatements.cards@hdfcbank.net"],
+      "subjectContains": ["HDFC Bank Credit Card Statement"],
+      "extraQuery": "",
+      "attachmentNameContains": [".pdf"],
+      "passwordEnv": "CC_PASSWORD_HDFC",
+      "parser": "hdfc",
+      "active": true,
+      "createdAt": 0
+    },
+    {
+      "id": "sbi",
+      "cardName": "SBI Card",
+      "bankName": "SBI Cards",
+      "lastFourDigits": "3456",
+      "senders": ["statements@sbicard.com"],
+      "subjectContains": ["SBI Card Monthly Statement"],
+      "extraQuery": "",
+      "attachmentNameContains": [".pdf"],
+      "passwordEnv": "CC_PASSWORD_SBI",
+      "parser": "sbi",
+      "active": true,
+      "createdAt": 0
+    }
+  ]
+}
