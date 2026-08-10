@@ -215,3 +215,6 @@ firebase-service-account.json
 # Credit-card module: local card config and OAuth token (never commit)
 creditcards/cards.json
 gmail_token.json
+
+# Timestamped .env backups — same secrets, must never be committed
+.env.bak*

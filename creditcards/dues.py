@@ -57,17 +57,46 @@ def _other_months(statement_month: str, target: str, due_date: str) -> list:
     return [m for m in candidates if m and m != target]
 
 
+def _signed(txn) -> float:
+    """A refund reverses a purchase, so it reduces the payer's total."""
+    amount = float(txn.get("amount") or 0)
+    return -amount if txn.get("transactionType") == "REFUND" else amount
+
+
 def compute_share(data_root: str, statement_id: str, owner_id: str) -> float:
-    """Sum of this statement's rows belonging to `owner_id`."""
-    total = 0.0
-    for txn in (store.get_transactions(data_root, statement_id) or {}).values():
-        if txn.get("ownerId") != owner_id:
+    """What `owner_id` actually owes on this statement.
+
+    Their spending, less their portion of the card-level credits — cashback and
+    fuel-surcharge waivers. Those reduce the bill you pay the bank but belong to
+    no single transaction, so they are split across owners in proportion to what
+    each one spent on the card. On a card that is entirely yours this returns
+    the bill itself, which is what these rows were set to by hand.
+
+    Payments are excluded: they settle the *previous* cycle, not this one.
+    """
+    rows = (store.get_transactions(data_root, statement_id) or {}).values()
+
+    own = 0.0
+    spend_total = 0.0
+    credits = 0.0
+    for txn in rows:
+        txn_type = txn.get("transactionType")
+        if txn_type == "CREDIT":
+            credits += float(txn.get("amount") or 0)
             continue
-        if txn.get("transactionType") not in OWNED_TYPES:
+        if txn_type not in OWNED_TYPES:
             continue
-        amount = float(txn.get("amount") or 0)
-        total += -amount if txn.get("transactionType") == "REFUND" else amount
-    return round(total, 2)
+        amount = _signed(txn)
+        spend_total += amount
+        if txn.get("ownerId") == owner_id:
+            own += amount
+
+    if own <= 0 or spend_total <= 0:
+        return round(own, 2)
+
+    # Unassigned spending keeps its slice of the credits rather than handing it
+    # to whoever happens to be assigned, so the split stays honest mid-review.
+    return round(own - credits * (own / spend_total), 2)
 
 
 def refresh_statement(data_root: str, statement_id: str, owner_id: str = None) -> dict:
