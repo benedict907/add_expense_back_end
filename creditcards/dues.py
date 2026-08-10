@@ -20,9 +20,14 @@ DUES = "dues"
 SELF_OWNER_DEFAULT = "owner_me"
 SOURCE = "creditCard"
 
-# A refund reverses a purchase, so it reduces the payer's share; payments and
-# cashback belong to the card, not to a person. Mirrors the dashboard.
-OWNED_TYPES = {"PURCHASE", "EMI", "FEE", "INTEREST", "REFUND"}
+# Rows that belong to a person. Credits are included because cashback and
+# surcharge waivers are earned by a specific purchase — assign the credit to
+# whoever made that purchase and it comes off their bill. Payments are excluded:
+# they settle the previous cycle rather than belonging to anyone's spending.
+OWNED_TYPES = {"PURCHASE", "EMI", "FEE", "INTEREST", "REFUND", "CREDIT"}
+
+# Types that reduce their owner's bill rather than adding to it.
+REDUCING_TYPES = {"REFUND", "CREDIT"}
 
 
 def self_owner_id(data_root: str) -> str:
@@ -58,45 +63,90 @@ def _other_months(statement_month: str, target: str, due_date: str) -> list:
 
 
 def _signed(txn) -> float:
-    """A refund reverses a purchase, so it reduces the payer's total."""
+    """Credits and refunds reduce what their owner owes; charges increase it."""
     amount = float(txn.get("amount") or 0)
-    return -amount if txn.get("transactionType") == "REFUND" else amount
+    return -amount if txn.get("transactionType") in REDUCING_TYPES else amount
+
+
+# Words that say what kind of credit a row is, not what earned it.
+_CREDIT_NOISE = {
+    "cashback", "cash", "back", "waiver", "surcharge", "reward", "rewards",
+    "credit", "adjustment", "reversal", "on", "the", "of", "for",
+}
+
+
+def _charge_rows(rows) -> list:
+    return [r for r in rows if r.get("transactionType") in OWNED_TYPES - REDUCING_TYPES]
+
+
+def credit_owner(credit: dict, rows) -> str:
+    """Work out whose purchase earned a credit, or None if it is not clear.
+
+    Cashback and surcharge waivers are not card-level rebates to divide up —
+    each one is earned by a particular purchase. Two signals, both drawn from
+    what has already been assigned:
+
+      1. Every charge on the statement belongs to one person, so the credit does
+         too. This is the common case on a card only one of you uses.
+      2. The credit names a merchant that appears in the charges — "10% Swiggy
+         CashBack" against a Swiggy purchase, a fuel-surcharge waiver against a
+         fuel station — and those matching charges have a single owner.
+
+    Anything less certain returns None and the credit is simply not netted off
+    anyone, which is why these never appear in the review queue.
+    """
+    charges = [r for r in _charge_rows(rows) if r.get("ownerId")]
+    if not charges:
+        return None
+
+    owners = {r["ownerId"] for r in charges}
+    if len(owners) == 1:
+        return owners.pop()
+
+    tokens = {
+        word
+        for word in (credit.get("merchant") or "").split()
+        if len(word) >= 4 and word not in _CREDIT_NOISE
+    }
+    if not tokens:
+        return None
+
+    matched = {
+        r["ownerId"]
+        for r in charges
+        if any(token[:5] in (r.get("merchant") or "") for token in tokens)
+    }
+    return matched.pop() if len(matched) == 1 else None
 
 
 def compute_share(data_root: str, statement_id: str, owner_id: str) -> float:
     """What `owner_id` actually owes on this statement.
 
-    Their spending, less their portion of the card-level credits — cashback and
-    fuel-surcharge waivers. Those reduce the bill you pay the bank but belong to
-    no single transaction, so they are split across owners in proportion to what
-    each one spent on the card. On a card that is entirely yours this returns
-    the bill itself, which is what these rows were set to by hand.
+    Their charges, less the credits assigned to them — cashback and surcharge
+    waivers are earned by a particular purchase, so they belong to whoever made
+    it. A fuel-surcharge waiver on someone else's fuel is not your discount, and
+    splitting credits by spend share would hand you one.
+
+    A credit nobody has claimed simply is not netted off anyone, which keeps
+    each person's figure honest while a statement is still being reviewed.
 
     Payments are excluded: they settle the *previous* cycle, not this one.
     """
-    rows = (store.get_transactions(data_root, statement_id) or {}).values()
+    rows = list((store.get_transactions(data_root, statement_id) or {}).values())
 
-    own = 0.0
-    spend_total = 0.0
-    credits = 0.0
+    total = 0.0
     for txn in rows:
-        txn_type = txn.get("transactionType")
-        if txn_type == "CREDIT":
-            credits += float(txn.get("amount") or 0)
+        if txn.get("transactionType") not in OWNED_TYPES:
             continue
-        if txn_type not in OWNED_TYPES:
+        if txn.get("transactionType") in REDUCING_TYPES and not txn.get("ownerId"):
+            # Nobody claimed it, so work out whose purchase earned it rather
+            # than making you assign cashback by hand.
+            if credit_owner(txn, rows) != owner_id:
+                continue
+        elif txn.get("ownerId") != owner_id:
             continue
-        amount = _signed(txn)
-        spend_total += amount
-        if txn.get("ownerId") == owner_id:
-            own += amount
-
-    if own <= 0 or spend_total <= 0:
-        return round(own, 2)
-
-    # Unassigned spending keeps its slice of the credits rather than handing it
-    # to whoever happens to be assigned, so the split stays honest mid-review.
-    return round(own - credits * (own / spend_total), 2)
+        total += _signed(txn)
+    return round(total, 2)
 
 
 def refresh_statement(data_root: str, statement_id: str, owner_id: str = None) -> dict:
