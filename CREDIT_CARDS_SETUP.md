@@ -87,7 +87,7 @@ One env var per card, named by that card's `passwordEnv`:
 CC_PASSWORD_KOTAK=...            # Kotak Cashback+ ····2533
 CC_PASSWORD_ICICI_AMAZON=...     # Amazon Pay ICICI ····1009
 CC_PASSWORD_ICICI_SAPPHIRO=...   # ICICI Sapphiro ····8000
-CC_PASSWORD_HDFC_SWIGGY=...      # Swiggy HDFC Bank
+CC_PASSWORD_HDFC=...             # Swiggy HDFC Bank ····9976
 CC_PASSWORD_SBI=...              # BPCL SBI Card OCTANE ····8160
 ```
 
@@ -149,7 +149,10 @@ statement's own printed figure to the paisa:
 | Amazon Pay ICICI | 6 | Total Amount Due (₹14,003.02) | ₹0.00 |
 | Swiggy HDFC | 11 | Purchases/Debit (₹3,756.00) | ₹0.00 |
 | BPCL SBI OCTANE | 9 | Purchases & Other Debits (₹1,03,524.60) | ₹0.00 |
-| ICICI Sapphiro | — | not yet run: `CC_PASSWORD_ICICI_SAPPHIRO` unset | — |
+| ICICI Sapphiro | 13 | Total Amount Due (₹10,063.55) | ₹0.00 |
+
+Also verified across June and August, and March/April for Kotak — 13 statements
+in all, every one reconciled.
 
 What each bank needed, and why the parsers are per-bank:
 
