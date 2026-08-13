@@ -109,6 +109,6 @@ def quick_expense(body: QuickExpense, x_api_key: str | None = Header(default=Non
     return {
         "status": "success",
         "id": key,
-        "message": f"Added {record['amount']} to {record['category']}",
+        "message": expense_text.describe(record),
         "data": record,
     }
