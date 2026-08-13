@@ -7,7 +7,17 @@ which prints the extracted lines and what was recognised, and writes nothing.
 
 import re
 
-from .base import CREDIT, EMI, FEE, INTEREST, PAYMENT, PURCHASE, SPEND_TYPES, BaseParser
+from .base import (
+    CREDIT,
+    EMI,
+    FEE,
+    INTEREST,
+    PAYMENT,
+    PURCHASE,
+    REFUND,
+    SPEND_TYPES,
+    BaseParser,
+)
 
 
 class GenericParser(BaseParser):
@@ -102,14 +112,21 @@ class ICICIParser(BaseParser):
     def reconcile(self, statement):
         """ICICI prints no purchases subtotal, only Total Amount Due.
 
-        That figure equals this cycle's billed rows (purchases, EMI principal,
-        interest and tax) when the previous balance was cleared, so it is the
-        check to use here.
+        With the previous balance cleared, that figure is this cycle's charges
+        (purchases, EMI principal, interest and tax) *less* anything credited
+        back — a refund, a reversal, cashback. Those credits are not carried in
+        the "Payments/Credits" line, so they have to come off here or a card
+        with a single refund reports a mismatch the size of the refund.
         """
-        extracted = round(
-            sum(t.amount for t in statement.transactions if t.transactionType in SPEND_TYPES),
-            2,
+        charges = sum(
+            t.amount for t in statement.transactions if t.transactionType in SPEND_TYPES
         )
+        credited = sum(
+            t.amount
+            for t in statement.transactions
+            if t.transactionType in (CREDIT, REFUND)
+        )
+        extracted = round(charges - credited, 2)
         statement.extractedTotal = extracted
         if statement.totalAmount is None:
             statement.reconciliation = "UNKNOWN"
