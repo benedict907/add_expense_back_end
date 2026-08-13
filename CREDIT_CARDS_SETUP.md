@@ -66,8 +66,18 @@ Edit it — the file is git-ignored and contains **no passwords**:
 To find the right `senders`/`subjectContains`: open a real statement email in
 Gmail, **Show original**, copy the `From` and `Subject`.
 
-On a host with no writable filesystem, paste the whole JSON into
-`CREDIT_CARDS_CONFIG_JSON` instead.
+`cards.json` is git-ignored, so it is **never part of a deploy**. On the host,
+paste the same JSON into `CREDIT_CARDS_CONFIG_JSON` instead:
+
+```bash
+python tools/print_cards_env.py        # one line, ready to paste
+python tools/print_cards_env.py --check  # validate only
+```
+
+It validates through the same loader the server uses, lists the `CC_PASSWORD_*`
+vars the host still needs, and prints no passwords (`cards.json` holds env-var
+*names* only). Without this, a sync fails with
+`Card config not found at '/opt/render/project/src/creditcards/cards.json'`.
 
 ## 4. Statement passwords
 
@@ -117,7 +127,11 @@ checked against `EXPENSE_DATA_ROOT`. No API key ships to the browser.
 `Procfile` is included: `uvicorn app:app --host 0.0.0.0 --port $PORT`.
 
 Environment variables the host needs: everything in `.env.example`, plus
-`CREDIT_CARDS_CONFIG_JSON` if you are not shipping `cards.json`.
+`CREDIT_CARDS_CONFIG_JSON` — `cards.json` is git-ignored and so is absent from
+every deploy. Generate the value with `python tools/print_cards_env.py` (section
+3). A sync that reports `Card config not found at
+'/opt/render/project/src/creditcards/cards.json'` means this variable is unset;
+one that reports it is "set but empty" means the paste did not save.
 
 Note: `pdfplumber` and `pikepdf` ship wheels, so no build tooling is needed.
 OCR needs `tesseract` and `poppler` as system packages — if your host cannot

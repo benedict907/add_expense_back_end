@@ -394,6 +394,76 @@ def test_widened_search_never_reaches_into_the_previous_month():
     assert "2026/07" not in widened
 
 
+# --- Card config loading -----------------------------------------------------
+# cards.json is git-ignored, so a deploy has only CREDIT_CARDS_CONFIG_JSON to
+# go on. These cover the ways that env var arrives in practice.
+
+CONFIG_ENV = "CREDIT_CARDS_CONFIG_JSON"
+CONFIG_FILE_ENV = "CREDIT_CARDS_CONFIG_FILE"
+MINIMAL_CONFIG = (
+    '{"cards":[{"id":"sbi","cardName":"BPCL SBI OCTANE","bankName":"SBI Cards",'
+    '"lastFourDigits":"8160","passwordEnv":"CC_PASSWORD_SBI","parser":"sbi"}]}'
+)
+
+
+def _load_with_env(value, cards_file="/nonexistent/cards.json"):
+    """Load cards with the config env var set to `value` (None = unset)."""
+    from creditcards import config
+
+    saved = {k: os.environ.get(k) for k in (CONFIG_ENV, CONFIG_FILE_ENV)}
+    try:
+        os.environ.pop(CONFIG_ENV, None)
+        if value is not None:
+            os.environ[CONFIG_ENV] = value
+        os.environ[CONFIG_FILE_ENV] = cards_file
+        return config.load_cards()
+    finally:
+        for key, old in saved.items():
+            os.environ.pop(key, None)
+            if old is not None:
+                os.environ[key] = old
+
+
+def test_inline_config_json_is_used_when_no_file_exists():
+    cards = _load_with_env(MINIMAL_CONFIG)
+    assert [c.id for c in cards] == ["sbi"]
+    assert cards[0].passwordEnv == "CC_PASSWORD_SBI"
+
+
+def test_inline_config_survives_paste_whitespace_and_wrapping_quotes():
+    """Host env-var UIs commonly add both. Neither is part of the JSON."""
+    for value in (
+        f"  {MINIMAL_CONFIG}\n",
+        f"'{MINIMAL_CONFIG}'",
+        f'  "{MINIMAL_CONFIG}"  ',
+    ):
+        assert [c.id for c in _load_with_env(value)] == ["sbi"], value
+
+
+def test_empty_config_env_is_reported_as_empty_not_as_a_missing_file():
+    """A blank env var is a paste that never saved — say so precisely."""
+    from creditcards import config
+
+    for blank in ("", "   "):
+        try:
+            _load_with_env(blank)
+        except config.ConfigError as exc:
+            assert CONFIG_ENV in str(exc) and "empty" in str(exc)
+        else:
+            raise AssertionError(f"blank {blank!r} should raise ConfigError")
+
+
+def test_missing_config_points_at_the_deployment_fix():
+    from creditcards import config
+
+    try:
+        _load_with_env(None)
+    except config.ConfigError as exc:
+        assert CONFIG_ENV in str(exc)
+    else:
+        raise AssertionError("a missing config file should raise ConfigError")
+
+
 def _run():
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     failures = 0
