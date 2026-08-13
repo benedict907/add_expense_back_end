@@ -74,21 +74,44 @@ def _cards_path() -> str:
     return os.environ.get("CREDIT_CARDS_CONFIG_FILE", DEFAULT_CARDS_FILE)
 
 
+def _unwrap(value: str) -> str:
+    """Trim whitespace, and one matching pair of wrapping quotes if present."""
+    value = value.strip()
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+        value = value[1:-1].strip()
+    return value
+
+
 def load_cards(include_inactive: bool = False) -> list:
     """Load card configs. Raises ConfigError with an actionable message."""
-    inline = os.environ.get("CREDIT_CARDS_CONFIG_JSON")
+    inline_raw = os.environ.get("CREDIT_CARDS_CONFIG_JSON")
+    # Pasting into a host's env-var UI often picks up surrounding whitespace or
+    # a wrapping pair of quotes; neither is meant to be part of the JSON.
+    inline = _unwrap(inline_raw) if inline_raw is not None else None
     if inline:
         try:
             raw = json.loads(inline)
         except ValueError as exc:
             raise ConfigError(f"CREDIT_CARDS_CONFIG_JSON is not valid JSON: {exc}")
+    elif inline_raw is not None:
+        # Set but empty — usually a paste that never saved. Say so, rather than
+        # falling through to a file-not-found message that sends the reader
+        # looking for the wrong problem.
+        raise ConfigError(
+            "CREDIT_CARDS_CONFIG_JSON is set but empty. Paste the contents of "
+            "creditcards/cards.json into it (python tools/print_cards_env.py "
+            "prints the exact one-line value), or unset it to read the file."
+        )
     else:
         path = _cards_path()
         if not os.path.exists(path):
             raise ConfigError(
-                f"Card config not found at {path!r}. Copy "
-                "creditcards/cards.example.json to creditcards/cards.json and "
-                "fill it in, or set CREDIT_CARDS_CONFIG_JSON."
+                f"Card config not found at {path!r}. In deployment, set "
+                "CREDIT_CARDS_CONFIG_JSON to the contents of your local "
+                "creditcards/cards.json (python tools/print_cards_env.py prints "
+                "it as one line) — cards.json is git-ignored, so it is never "
+                "part of a deploy. Locally, copy creditcards/cards.example.json "
+                "to creditcards/cards.json and fill it in."
             )
         with open(path, "r", encoding="utf-8") as handle:
             try:
