@@ -309,6 +309,11 @@ def sync_month(month_key: str, card_ids=None, force: bool = False) -> dict:
         wanted = set(card_ids)
         cards = [c for c in cards if c.id in wanted]
 
+    # Check the mailbox once. Gmail auth is shared by every card, so a dead
+    # token is one problem, not one per card — and finding out here costs a
+    # single API call instead of a failed download per statement.
+    gmail_client.check_auth()
+
     store.sync_cards(data_root, config.load_cards(include_inactive=True))
     owners = store.load_owners(data_root)
     index = owner_match.OwnerIndex(

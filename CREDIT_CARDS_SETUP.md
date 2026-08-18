@@ -33,6 +33,14 @@ brew install tesseract poppler
 2. **APIs & Services → Library** → enable **Gmail API**.
 3. **OAuth consent screen** → External → add your own address under **Test users**.
    No verification review is needed for a single test user.
+
+   Then **Publish app** on that same screen. While the app sits in *Testing*,
+   Google expires every refresh token it issues after **7 days**, and the sync
+   starts failing with `invalid_grant: Token has been expired or revoked` about
+   a week after it last worked. Publishing stops the clock. For a personal,
+   single-user app you can ignore the "unverified app" warning at sign-in —
+   verification only matters for distributing it to other people. Publish
+   *before* step 5, or the token you mint there expires too.
 4. **Credentials → Create credentials → OAuth client ID → Desktop app**.
 5. Put the client id/secret in `.env`, then run once, locally:
 

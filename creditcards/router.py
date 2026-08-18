@@ -111,6 +111,10 @@ def run_sync(body: SyncRequest, _auth=Depends(require_auth)):
         return sync.sync_month(_month(body.month), body.cardIds, force=body.force)
     except config.ConfigError as exc:
         raise HTTPException(status_code=503, detail=str(exc))
+    except gmail_client.AuthExpired as exc:
+        # Same class of problem as a missing config: nothing is wrong with the
+        # request, the server needs a human to re-authorise it.
+        raise HTTPException(status_code=503, detail=str(exc))
     except RuntimeError as exc:
         raise HTTPException(status_code=500, detail=str(exc))
 

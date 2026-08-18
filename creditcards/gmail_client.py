@@ -12,6 +12,7 @@ import base64
 import os
 from datetime import date, timedelta
 
+from google.auth.exceptions import RefreshError
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
@@ -28,6 +29,15 @@ class GmailError(RuntimeError):
 
 class StatementNotFound(GmailError):
     """No email matched this card for the requested month."""
+
+
+class AuthExpired(GmailError):
+    """The refresh token no longer works — re-consent is the only fix.
+
+    Worth its own type because it is not a per-card problem: no card can sync
+    until a human re-mints the token, so the sync stops instead of repeating
+    the same failure once per card.
+    """
 
 
 def _credentials() -> Credentials:
@@ -56,8 +66,43 @@ def _credentials() -> Credentials:
         token_uri=TOKEN_URI,
         scopes=SCOPES,
     )
-    creds.refresh(Request())
+    try:
+        creds.refresh(Request())
+    except RefreshError as exc:
+        raise AuthExpired(_refresh_failure_message(exc)) from exc
     return creds
+
+
+def _refresh_failure_message(exc: RefreshError) -> str:
+    """Translate Google's `invalid_grant` into what to actually do about it.
+
+    Google returns the same terse code whatever the cause, so the message names
+    the likely one first: an OAuth consent screen left in "Testing" expires
+    every refresh token it issues after 7 days, which is the default state for
+    the single-test-user setup in CREDIT_CARDS_SETUP.md.
+    """
+    detail = str(exc)
+    if "invalid_grant" not in detail:
+        return f"Gmail sign-in failed: {detail}"
+    return (
+        "Gmail access has expired (invalid_grant). If the OAuth consent screen "
+        "is still in Testing, Google expires refresh tokens after 7 days — "
+        "publish the app first (Google Cloud Console -> APIs & Services -> "
+        "OAuth consent screen -> Publish app), otherwise the replacement "
+        "expires too. Then re-run: python tools/gmail_oauth_setup.py, and put "
+        "the new GMAIL_REFRESH_TOKEN in your host's environment. Access is also "
+        "revoked by changing your Google password or removing the app at "
+        "myaccount.google.com/permissions."
+    )
+
+
+def check_auth() -> str:
+    """Verify the refresh token before any per-card work. Returns the mailbox.
+
+    Raises AuthExpired / GmailError, so a dead token is reported once, up front,
+    instead of as an identical failure on every card.
+    """
+    return profile_email()
 
 
 def get_service():

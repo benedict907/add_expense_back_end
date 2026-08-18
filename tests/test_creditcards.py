@@ -464,6 +464,83 @@ def test_missing_config_points_at_the_deployment_fix():
         raise AssertionError("a missing config file should raise ConfigError")
 
 
+# --- Gmail auth --------------------------------------------------------------
+
+
+def _refresh_error(message):
+    from google.auth.exceptions import RefreshError
+
+    return RefreshError(message, {"error": "invalid_grant"})
+
+
+def test_expired_refresh_token_becomes_an_actionable_auth_error():
+    """google-auth raises RefreshError, which is NOT a RuntimeError.
+
+    So it slipped past every handler in sync_card into the catch-all and
+    surfaced as a raw "Unexpected error: ('invalid_grant: ...')" per card.
+    """
+    from unittest import mock
+
+    from creditcards import gmail_client
+
+    gmail_client.reset_service()
+    env = {
+        "GMAIL_CLIENT_ID": "x",
+        "GMAIL_CLIENT_SECRET": "y",
+        "GMAIL_REFRESH_TOKEN": "z",
+    }
+    error = _refresh_error("invalid_grant: Token has been expired or revoked.")
+    with mock.patch.dict(os.environ, env):
+        with mock.patch(
+            "google.oauth2.credentials.Credentials.refresh", side_effect=error
+        ):
+            try:
+                gmail_client.check_auth()
+            except gmail_client.AuthExpired as exc:
+                text = str(exc)
+                # Names the cause and both halves of the fix.
+                assert "invalid_grant" in text
+                assert "7 days" in text and "Publish app" in text
+                assert "gmail_oauth_setup.py" in text
+            else:
+                raise AssertionError("an expired token should raise AuthExpired")
+    gmail_client.reset_service()
+
+
+def test_auth_expiry_is_a_gmail_error_so_callers_already_handle_it():
+    from creditcards import gmail_client
+
+    assert issubclass(gmail_client.AuthExpired, gmail_client.GmailError)
+    # RuntimeError keeps the router's existing 5xx mapping working.
+    assert issubclass(gmail_client.AuthExpired, RuntimeError)
+
+
+def test_sync_checks_the_mailbox_once_before_touching_any_card():
+    """A dead token is one problem, not one per card."""
+    from unittest import mock
+
+    from creditcards import gmail_client, sync
+
+    calls = []
+
+    def refuse():
+        calls.append(1)
+        raise gmail_client.AuthExpired("expired")
+
+    with mock.patch.dict(os.environ, {CONFIG_ENV: MINIMAL_CONFIG,
+                                      "EXPENSE_DATA_ROOT": "test-root"}):
+        with mock.patch.object(gmail_client, "check_auth", side_effect=refuse):
+            with mock.patch.object(sync, "sync_card") as per_card:
+                try:
+                    sync.sync_month("2026-08")
+                except gmail_client.AuthExpired:
+                    pass
+                else:
+                    raise AssertionError("sync_month should surface AuthExpired")
+    assert calls == [1], "mailbox should be checked exactly once"
+    assert per_card.call_count == 0, "no card work before auth is known good"
+
+
 def _run():
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     failures = 0
