@@ -104,7 +104,10 @@ class ICICIParser(BaseParser):
     SUMMARY_LOOKAHEAD = 2
     SKIP_LINE = re.compile(
         r"^(page \d|date\s+ser\.?\s*no|spends overview|statement summary|"
-        r"credit summary|earnings|important messages|# international)",
+        r"credit summary|earnings|important messages|# international|"
+        # Masked card-number subheading between add-on cards ("6530XXXXXXXX8009"),
+        # which would otherwise be read as a wrapped description.
+        r"\d{4}X{4,}\d{4}\s*$)",
         re.I,
     )
 

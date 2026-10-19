@@ -532,6 +532,23 @@ def test_diagnosis_shows_the_rows_under_the_heading():
     assert "'Sep 18 EXAMPLE CAFE 1,000.00'" in diagnosis
 
 
+def test_icici_card_subheading_is_not_a_wrapped_description():
+    from creditcards.parsers.banks import ICICIParser
+
+    lines = [
+        "Date SerNo. Transaction Details Reward Points Amount",
+        "4501XXXXXXXX1111",
+        "02/10/2026 12345678901 INFINITY PAYMENT RECEIVED, THANK YOU 0 1,000.00 CR",
+        "6530XXXXXXXX2222",
+        "03/10/2026 12345678902 EXAMPLE CAFE MUMBAI IN 5 500.00",
+    ]
+    statement = ICICIParser(ICICI_CARD).parse(Extraction("text", lines, [], 1), "2026-10")
+    assert [t.description for t in statement.transactions] == [
+        "INFINITY PAYMENT RECEIVED, THANK YOU",
+        "EXAMPLE CAFE MUMBAI IN",
+    ]
+
+
 def _run():
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     failures = 0
