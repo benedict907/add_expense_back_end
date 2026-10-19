@@ -90,15 +90,18 @@ class ICICIParser(BaseParser):
     CREDIT_MARKERS = {"cr"}
     # A reward-category badge can sit in front of the date, either bare
     # ("100% 30/06/2026 …") or spelled out ("Apparel/Grocery-8% Others-85%
-    # 22/06/2026 …"). The serial number can also come first ("12345678901
-    # 18/09/2026 …"). Strip it up to the date, but only when a date actually
-    # follows, so ordinary descriptions are untouched.
-    ROW_LEADING_NOISE = re.compile(r"^(?:.*%|\d{6,})\s*(?=\d{2}/\d{2}/\d{4}\b)")
+    # 22/06/2026 …"). Text from the page's side banner can also land in front
+    # of a row ("B 25/09/2026 14236658090 …"). A row is a date followed by its
+    # serial number, so strip whatever precedes that pair — and only that, so
+    # ordinary descriptions are untouched.
+    ROW_LEADING_NOISE = re.compile(
+        r"^.*?(?=(?<!\d)\d{2}/\d{2}/\d{4}\s+\d{9,}\b)|^.*%\s*(?=\d{2}/\d{2}/\d{4}\b)"
+    )
     # Reward-points column sits between description and amount.
     DESCRIPTION_TRAILING_NOISE = re.compile(r"\s+-?\d{1,4}$")
     # Each row opens with an 11-digit serial number.
     DESCRIPTION_LEADING_NOISE = re.compile(r"^\d{8,}\s+")
-    TXN_BLOCK_START = re.compile(r"^SPENDS OVERVIEW|^Date\s+Ser\.?\s*No", re.I)
+    TXN_BLOCK_START = re.compile(r"^SPENDS OVERVIEW|\bDate\s+Ser\.?\s*No", re.I)
     TXN_BLOCK_END = re.compile(r"^(# International Spends|EARNINGS)\s*$", re.I)
     ALLOW_CONTINUATION = True
     SUMMARY_LOOKAHEAD = 2

@@ -509,18 +509,25 @@ def test_no_rows_reports_a_diagnosis():
     assert "0 lines start with a date" in diagnosis[0]
 
 
-def test_icici_serial_number_before_the_date():
+def test_icici_rows_with_side_banner_text_in_front():
     from creditcards.parsers.banks import ICICIParser
 
+    # Upright letters stacked down the page's side banner are extracted onto
+    # the start of whichever row shares their height, so no row starts with
+    # its date — the October 2026 Sapphiro statement failed this way.
     lines = [
-        "Date SerNo. Transaction Details Reward Points Amount",
-        "12345678901 18/09/2026 EXAMPLE CAFE MUMBAI IN 12 1,000.00",
+        "A Date SerNo. Transaction Details Reward Points Amount",
+        "B 25/09/2026 14236658090 EXAMPLE STORE MUMBAI IN 1138 56,925.00",
+        "C 29/09/2026 14253321006 Principal Amount Amortization - 0 4,365.01",
+        "D <1/12>EXAMPLE STORE",
+        "01/10/2026 14275490705 EXAMPLE CLINIC KOCHI IN 5 250.00",
+        "Merchant EMI 29/09/2026 29/08/2027 12 56,925.00 11 57,407.72 5,218.88",
     ]
     statement = ICICIParser(ICICI_CARD).parse(Extraction("text", lines, [], 1), "2026-10")
-    assert len(statement.transactions) == 1
-    txn = statement.transactions[0]
-    assert txn.transactionDate == "2026-09-18"
-    assert txn.description == "EXAMPLE CAFE MUMBAI IN"
+    txns = statement.transactions
+    assert [t.transactionDate for t in txns] == ["2026-09-25", "2026-09-29", "2026-10-01"]
+    assert txns[0].description == "EXAMPLE STORE MUMBAI IN"
+    assert txns[1].transactionType == parsers.EMI and txns[1].emiTenure == 12
 
 
 def test_diagnosis_shows_the_rows_under_the_heading():
