@@ -239,6 +239,14 @@ class BaseParser:
         if samples:
             shown = " | ".join(repr(line[:90]) for line in samples)
             parts.append(f"lines with an amount after the heading: {shown}")
+        # Rows carry a long reference or serial number. ascii() exposes any
+        # invisible or look-alike character that stops a date from matching.
+        referenced = [line for line in lines[start:] if re.search(r"\d{9,}", line)][:3]
+        if referenced:
+            shown = " | ".join(ascii(line[:90]) for line in referenced)
+            parts.append(f"[v2] lines with a long number: {shown}")
+        else:
+            parts.append("[v2] no line after the heading has a long number")
         return "Diagnosis: " + "; ".join(parts) + "."
 
     def preprocess(self, lines: list) -> list:

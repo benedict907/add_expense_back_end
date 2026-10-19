@@ -537,6 +537,12 @@ def test_diagnosis_shows_the_rows_under_the_heading():
     statement = ICICIParser(ICICI_CARD).parse(Extraction("text", lines, [], 1), "2026-10")
     diagnosis = [w for w in statement.warnings if w.startswith("Diagnosis:")][0]
     assert "'Sep 18 EXAMPLE CAFE 1,000.00'" in diagnosis
+    assert "[v2] no line after the heading has a long number" in diagnosis
+
+    lines = ["SPENDS OVERVIEW", "\u200b25 / 09 / 2026 14236658090 EXAMPLE CAFE 1,000.00"]
+    statement = ICICIParser(ICICI_CARD).parse(Extraction("text", lines, [], 1), "2026-10")
+    diagnosis = [w for w in statement.warnings if w.startswith("Diagnosis:")][0]
+    assert "'\\u200b25 / 09 / 2026 14236658090" in diagnosis
 
 
 def test_icici_card_subheading_is_not_a_wrapped_description():
