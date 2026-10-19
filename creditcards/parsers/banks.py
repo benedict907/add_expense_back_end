@@ -146,12 +146,35 @@ class ICICIParser(BaseParser):
             else "MISMATCH"
         )
 
+    # A fake-bold row extracts with every glyph doubled — "2255//0099//22002266"
+    # for 25/09/2026. Extraction dedupes overlapping glyphs, so this only fires
+    # when the two copies sit too far apart for that to catch.
+    _DOUBLED_DATE = re.compile(r"(\d)\1(\d)\2//(\d)\3(\d)\4//")
+
     def preprocess(self, lines: list) -> list:
-        """Collapse ICICI's doubled-letter headings so labels match.
+        """Collapse ICICI's doubled glyphs so labels and rows match.
 
         "SSTTAATTEEMMEENNTT DDAATTEE" -> "STATEMENT DATE".
         """
-        return [self._undouble(line) if self._DOUBLED.search(line) else line for line in lines]
+        out = []
+        for line in lines:
+            if self._DOUBLED_DATE.search(line):
+                line = self._undouble_row(line)
+            elif self._DOUBLED.search(line):
+                line = self._undouble(line)
+            out.append(line)
+        return out
+
+    @staticmethod
+    def _undouble_row(line: str) -> str:
+        # Every token of a doubled row is doubled, digits and punctuation
+        # included; one that is not ("DREAMPLUG", odd length) is left alone.
+        out = []
+        for word in line.split(" "):
+            if len(word) >= 2 and len(word) % 2 == 0 and word[0::2] == word[1::2]:
+                word = word[0::2]
+            out.append(word)
+        return " ".join(out)
 
     @staticmethod
     def _undouble(line: str) -> str:

@@ -562,6 +562,50 @@ def test_icici_card_subheading_is_not_a_wrapped_description():
     ]
 
 
+def test_icici_fake_bold_rows_are_undoubled():
+    from creditcards.parsers.banks import ICICIParser
+
+    # Glyphs painted twice for bold extract doubled; the October 2026
+    # Sapphiro statement printed its transaction rows this way.
+    lines = [
+        "Date SerNo. Transaction Details Reward Points Amount",
+        "2255//0099//22002266 1144223366665588009900 EXAMPLE STORE MUMBAI IINN "
+        "11113388 5566,,992255..0000",
+        "2299//0099//22002266 1144225533332200999933 EXAMPLE STORE MUMBAI IINN "
+        "--11113388 5566,,992255..0000 CCRR",
+        "01/10/2026 14275490705 EXAMPLE CLINIC KOCHI IN 5 250.00",
+    ]
+    statement = ICICIParser(ICICI_CARD).parse(Extraction("text", lines, [], 1), "2026-10")
+    txns = statement.transactions
+    assert [(t.transactionDate, t.amount, t.transactionType) for t in txns] == [
+        ("2026-09-25", 56925.0, parsers.PURCHASE),
+        ("2026-09-29", 56925.0, parsers.CREDIT),
+        ("2026-10-01", 250.0, parsers.PURCHASE),
+    ]
+    assert txns[0].description == "EXAMPLE STORE MUMBAI IN"
+
+
+def test_extraction_drops_glyphs_painted_twice():
+    try:
+        from reportlab.pdfgen import canvas
+    except ImportError:
+        return  # optional: only needed to build the PDF for this test
+    import io
+
+    from creditcards import extract
+
+    buf = io.BytesIO()
+    pdf = canvas.Canvas(buf)
+    pdf.setFont("Helvetica", 9)
+    for dx in (0, 0.4):
+        pdf.drawString(60 + dx, 680, "25/09/2026 14236658090 BILL PAYMENT 1,100.00")
+    pdf.drawString(60, 400, "x" * 250)
+    pdf.save()
+    assert extract.extract(buf.getvalue()).lines[0] == (
+        "25/09/2026 14236658090 BILL PAYMENT 1,100.00"
+    )
+
+
 def _run():
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     failures = 0

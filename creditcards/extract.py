@@ -36,10 +36,19 @@ class Extraction:
         return "\n".join(self.lines)
 
 
+def _dedupe(page):
+    """Drop characters drawn twice over themselves.
+
+    ICICI fakes bold by painting each glyph twice, a fraction of a point
+    apart, which otherwise extracts as "2255//0099//22002266" for 25/09/2026.
+    """
+    return page.dedupe_chars(tolerance=1)
+
+
 def _text_lines(pdf) -> list:
     lines = []
     for page in pdf.pages:
-        raw = page.extract_text(x_tolerance=1.6, y_tolerance=3) or ""
+        raw = _dedupe(page).extract_text(x_tolerance=1.6, y_tolerance=3) or ""
         for line in raw.splitlines():
             stripped = line.strip()
             if stripped:
@@ -51,7 +60,7 @@ def _tables(pdf) -> list:
     """Every table on every page, as lists of row-cell lists."""
     found = []
     for page in pdf.pages:
-        for table in page.extract_tables() or []:
+        for table in _dedupe(page).extract_tables() or []:
             rows = [
                 [(cell or "").replace("\n", " ").strip() for cell in row]
                 for row in table
