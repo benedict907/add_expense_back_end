@@ -97,12 +97,12 @@ class ICICIParser(BaseParser):
     DESCRIPTION_TRAILING_NOISE = re.compile(r"\s+-?\d{1,4}$")
     # Each row opens with an 11-digit serial number.
     DESCRIPTION_LEADING_NOISE = re.compile(r"^\d{8,}\s+")
-    TXN_BLOCK_START = re.compile(r"^SPENDS OVERVIEW|^Date\s+SerNo", re.I)
+    TXN_BLOCK_START = re.compile(r"^SPENDS OVERVIEW|^Date\s+Ser\.?\s*No", re.I)
     TXN_BLOCK_END = re.compile(r"^(# International Spends|EARNINGS)\s*$", re.I)
     ALLOW_CONTINUATION = True
     SUMMARY_LOOKAHEAD = 2
     SKIP_LINE = re.compile(
-        r"^(page \d|date\s+serno|spends overview|statement summary|"
+        r"^(page \d|date\s+ser\.?\s*no|spends overview|statement summary|"
         r"credit summary|earnings|important messages|# international)",
         re.I,
     )

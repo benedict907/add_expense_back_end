@@ -209,7 +209,29 @@ class BaseParser:
         self.parse_summary(lines, statement)
         statement.transactions = self.parse_transactions(lines, statement)
         self.finalise(statement)
+        if not statement.transactions:
+            statement.warnings.append(self.diagnose_no_rows(lines))
         return statement
+
+    def diagnose_no_rows(self, lines) -> str:
+        """Say why nothing matched, so a layout change can be fixed from the
+        sync result alone rather than needing the PDF."""
+        heading = self.TXN_BLOCK_START is None or any(
+            self.TXN_BLOCK_START.search(line) for line in lines
+        )
+        dated = [line for line in lines if _LEADING_DATE.search(self.clean_row(line))]
+        parts = [
+            f"{len(lines)} lines read",
+            "block heading found" if heading else "block heading NOT found",
+            f"{len(dated)} lines start with a date",
+        ]
+        if dated:
+            parts.append(f"first: {dated[0][:90]!r}")
+        else:
+            sample = next((line for line in lines if MONEY_RE.search(line)), "")
+            if sample:
+                parts.append(f"first line with an amount: {sample[:90]!r}")
+        return "Diagnosis: " + "; ".join(parts) + "."
 
     def preprocess(self, lines: list) -> list:
         """Hook: clean raw extracted lines before anything else looks at them."""
@@ -277,17 +299,32 @@ class BaseParser:
     # ---------- transactions ----------
 
     def parse_transactions(self, lines, statement: ParsedStatement) -> list:
+        transactions = self._scan_rows(lines, bounded=True)
+        if not transactions and self.TXN_BLOCK_START is not None:
+            # The block heading is the most fragile thing on the page: reworded
+            # or re-rendered, it would silently drop every row. Rows still need
+            # a leading date and a trailing amount, and reconciliation flags
+            # anything stray that an unbounded scan picks up.
+            transactions = self._scan_rows(lines, bounded=False)
+            if transactions:
+                statement.warnings.append(
+                    "The transaction block heading was not found, so the whole "
+                    "statement was scanned for rows — check the reconciliation."
+                )
+        return transactions
+
+    def _scan_rows(self, lines, bounded: bool) -> list:
         transactions = []
         section_type = None
         last_date = ""
-        inside = self.TXN_BLOCK_START is None
+        inside = not bounded or self.TXN_BLOCK_START is None
 
         for line in lines:
             if not inside:
                 if self.TXN_BLOCK_START.search(line):
                     inside = True
                 continue
-            if self.TXN_BLOCK_END is not None and self.TXN_BLOCK_END.search(line):
+            if bounded and self.TXN_BLOCK_END is not None and self.TXN_BLOCK_END.search(line):
                 inside = False
                 continue
 
