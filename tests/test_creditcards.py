@@ -464,6 +464,51 @@ def test_missing_config_points_at_the_deployment_fix():
         raise AssertionError("a missing config file should raise ConfigError")
 
 
+ICICI_CARD = CardConfig(id="icici_sapphiro", cardName="ICICI Sapphiro",
+                        bankName="ICICI Bank", lastFourDigits="8000", parser="icici")
+
+
+def test_icici_rows_survive_a_missing_block_heading():
+    from creditcards.parsers.banks import ICICIParser
+
+    # No "SPENDS OVERVIEW" / "Date SerNo" heading: a reworded heading used to
+    # drop every row and fail the sync with nothing saved.
+    lines = [
+        "Total Amount Due 1,500.00",
+        "Transaction Details",
+        "02/09/2026 12345678901 EXAMPLE CAFE MUMBAI IN 12 1,000.00",
+        "100% 05/09/2026 12345678902 EXAMPLE STORE PUNE IN 6 500.00",
+    ]
+    statement = ICICIParser(ICICI_CARD).parse(Extraction("text", lines, [], 1), "2026-09")
+    assert len(statement.transactions) == 2
+    assert statement.transactions[0].description == "EXAMPLE CAFE MUMBAI IN"
+    assert statement.reconciliation == "RECONCILED"
+    assert any("heading was not found" in w for w in statement.warnings)
+
+
+def test_icici_heading_with_spaced_serial_column():
+    from creditcards.parsers.banks import ICICIParser
+
+    lines = [
+        "Date Ser. No. Transaction Details Reward Points Amount",
+        "02/09/2026 12345678901 EXAMPLE CAFE MUMBAI IN 12 1,000.00",
+    ]
+    statement = ICICIParser(ICICI_CARD).parse(Extraction("text", lines, [], 1), "2026-09")
+    assert len(statement.transactions) == 1
+    assert not any("heading was not found" in w for w in statement.warnings)
+
+
+def test_no_rows_reports_a_diagnosis():
+    from creditcards.parsers.banks import ICICIParser
+
+    lines = ["Total Amount Due 1,500.00", "Sep 02 EXAMPLE CAFE 1,000.00"]
+    statement = ICICIParser(ICICI_CARD).parse(Extraction("text", lines, [], 1), "2026-09")
+    assert not statement.transactions
+    diagnosis = [w for w in statement.warnings if w.startswith("Diagnosis:")]
+    assert diagnosis and "block heading NOT found" in diagnosis[0]
+    assert "0 lines start with a date" in diagnosis[0]
+
+
 def _run():
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     failures = 0
