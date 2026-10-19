@@ -227,10 +227,18 @@ class BaseParser:
         ]
         if dated:
             parts.append(f"first: {dated[0][:90]!r}")
-        else:
-            sample = next((line for line in lines if MONEY_RE.search(line)), "")
-            if sample:
-                parts.append(f"first line with an amount: {sample[:90]!r}")
+        # The lines under the heading that carry an amount are the rows the
+        # parser should have read; showing them is what makes a fix possible.
+        start = 0
+        if self.TXN_BLOCK_START is not None:
+            start = next(
+                (i + 1 for i, line in enumerate(lines) if self.TXN_BLOCK_START.search(line)),
+                0,
+            )
+        samples = [line for line in lines[start:] if MONEY_RE.search(line)][:3]
+        if samples:
+            shown = " | ".join(repr(line[:90]) for line in samples)
+            parts.append(f"lines with an amount after the heading: {shown}")
         return "Diagnosis: " + "; ".join(parts) + "."
 
     def preprocess(self, lines: list) -> list:

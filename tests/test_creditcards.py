@@ -509,6 +509,29 @@ def test_no_rows_reports_a_diagnosis():
     assert "0 lines start with a date" in diagnosis[0]
 
 
+def test_icici_serial_number_before_the_date():
+    from creditcards.parsers.banks import ICICIParser
+
+    lines = [
+        "Date SerNo. Transaction Details Reward Points Amount",
+        "12345678901 18/09/2026 EXAMPLE CAFE MUMBAI IN 12 1,000.00",
+    ]
+    statement = ICICIParser(ICICI_CARD).parse(Extraction("text", lines, [], 1), "2026-10")
+    assert len(statement.transactions) == 1
+    txn = statement.transactions[0]
+    assert txn.transactionDate == "2026-09-18"
+    assert txn.description == "EXAMPLE CAFE MUMBAI IN"
+
+
+def test_diagnosis_shows_the_rows_under_the_heading():
+    from creditcards.parsers.banks import ICICIParser
+
+    lines = ["SPENDS OVERVIEW", "Sep 18 EXAMPLE CAFE 1,000.00"]
+    statement = ICICIParser(ICICI_CARD).parse(Extraction("text", lines, [], 1), "2026-10")
+    diagnosis = [w for w in statement.warnings if w.startswith("Diagnosis:")][0]
+    assert "'Sep 18 EXAMPLE CAFE 1,000.00'" in diagnosis
+
+
 def _run():
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     failures = 0

@@ -90,9 +90,10 @@ class ICICIParser(BaseParser):
     CREDIT_MARKERS = {"cr"}
     # A reward-category badge can sit in front of the date, either bare
     # ("100% 30/06/2026 …") or spelled out ("Apparel/Grocery-8% Others-85%
-    # 22/06/2026 …"). Strip everything up to the date, but only when a date
-    # actually follows, so ordinary descriptions are untouched.
-    ROW_LEADING_NOISE = re.compile(r"^.*%\s*(?=\d{2}/\d{2}/\d{4}\b)")
+    # 22/06/2026 …"). The serial number can also come first ("12345678901
+    # 18/09/2026 …"). Strip it up to the date, but only when a date actually
+    # follows, so ordinary descriptions are untouched.
+    ROW_LEADING_NOISE = re.compile(r"^(?:.*%|\d{6,})\s*(?=\d{2}/\d{2}/\d{4}\b)")
     # Reward-points column sits between description and amount.
     DESCRIPTION_TRAILING_NOISE = re.compile(r"\s+-?\d{1,4}$")
     # Each row opens with an 11-digit serial number.
