@@ -151,6 +151,12 @@ class ICICIParser(BaseParser):
     # when the two copies sit too far apart for that to catch.
     _DOUBLED_DATE = re.compile(r"(\d)\1(\d)\2//(\d)\3(\d)\4//")
 
+    # The fake-bold amount column paints its second copy in a font whose digits
+    # extract as letters (B=1 … J=9, K=0), interleaved with stray digits from
+    # the first copy: "F4G7,4J3C7F..5K0K" is 56,925.00, "0K..0K0K" is 0.00.
+    _CIPHER_AMOUNT = re.compile(r"^(?=.*[B-K])(?=.*\d)[0-9B-K.,]+$")
+    _CIPHER_DIGITS = str.maketrans("BCDEFGHIJK", "1234567890")
+
     def preprocess(self, lines: list) -> list:
         """Collapse ICICI's doubled glyphs so labels and rows match.
 
@@ -162,8 +168,21 @@ class ICICIParser(BaseParser):
                 line = self._undouble_row(line)
             elif self._DOUBLED.search(line):
                 line = self._undouble(line)
-            out.append(line)
+            out.append(self._decode_amount(line))
         return out
+
+    def _decode_amount(self, line: str) -> str:
+        """Read a ciphered amount back at the end of a dated row."""
+        if not re.match(r"\d{2}/\d{2}/\d{4}\b", line):
+            return line
+        words = line.split(" ")
+        # The amount is last, or just before a trailing CR marker.
+        index = len(words) - 2 if len(words) > 1 and words[-1].upper() == "CR" else len(words) - 1
+        if not self._CIPHER_AMOUNT.match(words[index]):
+            return line
+        decoded = re.sub(r"\d", "", words[index]).translate(self._CIPHER_DIGITS)
+        words[index] = re.sub(r"([.,])\1+", r"\1", decoded)
+        return " ".join(words)
 
     @staticmethod
     def _undouble_row(line: str) -> str:

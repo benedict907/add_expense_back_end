@@ -606,6 +606,27 @@ def test_extraction_drops_glyphs_painted_twice():
     )
 
 
+def test_icici_ciphered_amount_column_is_decoded():
+    from creditcards.parsers.banks import ICICIParser
+
+    # Real extracted rows from the October 2026 Sapphiro statement, whose
+    # amount column extracts as letters (B=1 … J=9, K=0) mixed with stray digits.
+    lines = [
+        "Date SerNo. Transaction Details Reward Points Amount",
+        "25/09/2026 14236658090 EXAMPLE STORE MUMBAI IN 1138 F4G7,4J3C7F..5K0K",
+        "29/09/2026 14253320993 EXAMPLE STORE MUMBAI IN -1138 F4G7,4J3C7F..5K0K CR",
+        "29/09/2026 14253320998 EXAMPLE STORE MUMBAI IN 0 0K..0K0K CR",
+        "01/10/2026 14275490705 EXAMPLE CLINIC KOCHI IN 5 250.00",
+    ]
+    statement = ICICIParser(ICICI_CARD).parse(Extraction("text", lines, [], 1), "2026-10")
+    assert [(t.amount, t.transactionType) for t in statement.transactions] == [
+        (56925.0, parsers.PURCHASE),
+        (56925.0, parsers.CREDIT),
+        (250.0, parsers.PURCHASE),
+    ]
+    assert statement.transactions[0].description == "EXAMPLE STORE MUMBAI IN"
+
+
 def _run():
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     failures = 0
